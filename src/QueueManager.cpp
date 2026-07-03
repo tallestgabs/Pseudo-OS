@@ -19,6 +19,7 @@ void QueueManager::verify_arrivals(int current_clock){
             case 0:
                 realTime_queue.push(new_process);
                 break;
+                
             case 1:
                 user1_queue.push(new_process);
                 break;

@@ -9,6 +9,7 @@
 
 #include "../include/Process.hpp"
 #include "../include/QueueManager.hpp"
+#include "../include/ResourceManager.hpp"
 
 using namespace std;
 
@@ -80,6 +81,12 @@ int main(int argc, char* argv[])
     // cria o gerenciador de filas passando processos lidos
     QueueManager queue_manager(read_processes);
 
+	// cria o gerenciador de arquivos e dispositivos de I/O
+	ResourceManager resource_manager(argv[2]);
+	/*========================= TESTE ================================*/
+    for(std::tuple t: resource_manager.getOccupiedSegmentsInstructions()) {
+    	cout << std::get<0>(t) << " " << std::get<1>(t) << " " << std::get<2>(t) << "\n";
+    }
 
     // clock da CPU
     int system_clock = 0;
@@ -143,11 +150,5 @@ int main(int argc, char* argv[])
             system_clock++;
         }
     }
-
-
-    
-
-
-
     return 0;
 }
