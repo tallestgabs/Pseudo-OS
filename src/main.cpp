@@ -75,19 +75,26 @@ int main(int argc, char* argv[])
 
     // cria o gerenciador de arquivos e dispositivos de I/O
     ResourceManager resource_manager(argv[2]);
+    resource_manager.execSegmentsInstruction();
 
     // Liga cada processo às suas instruções ANTES de ordenar,
     // usando o pid como índice em unsorted_processes (que preserva a ordem original)
-    for (auto t : resource_manager.getProcessInstructions())
+    for (tuple t : resource_manager.getProcessInstructions())
     {
         long pid = std::get<0>(t);
         if (pid < 0 || pid >= (long)unsorted_processes.size())
             continue;
-        unsorted_processes[pid]->process_instructions.push_back(t); // -> em vez de .
+        else
+        	unsorted_processes[pid]->process_instructions.push_back(t); // -> em vez de .
     }
 
-    for (int i : resource_manager.getDisk())
-        cout << i << " ";
+    for (char c : resource_manager.getDisk())
+        cout << c << " ";
+    cout << "\n";
+    
+    for (int i = 0; i < resource_manager.getDiskBlocks(); i++) {
+    	cout << resource_manager.getBitMap()[i] << " ";
+    }
     cout << "\n";
 
     for (Process* p : unsorted_processes)     // Process* em vez de Process
@@ -149,7 +156,7 @@ int main(int argc, char* argv[])
                 {
                     current_process->pc++;
                     cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
-                    resource_manager.execInstruction(current_process);
+                    resource_manager.execProcessInstruction(current_process);
 
                     // execucao da memoria em tempo real (prioridade 0)
                     memory_manager.execute_instruction(current_process);
@@ -198,7 +205,15 @@ int main(int argc, char* argv[])
     // libera a memória alocada em create_process
     for (Process* p : unsorted_processes)
         delete p;
-
+	
+	for (char c : resource_manager.getDisk())
+        cout << c << " ";
+    cout << "\n";
+    
+    for (int i = 0; i < resource_manager.getDiskBlocks(); i++) {
+    	cout << resource_manager.getBitMap()[i] << " ";
+    }
+    cout << "\n";
     // printa o resumo das faltas de página por processo
     cout << "Número de Faltas de Páginas por processo:\n";
     for (auto const& [pid, faults] : page_faults_summary) {

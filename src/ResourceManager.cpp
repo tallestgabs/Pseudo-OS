@@ -27,7 +27,7 @@ ResourceManager::ResourceManager(const std::string& file) {
             ss >> this->disk_blocks;
             // Popula o disco
             for(int i = 0; i < disk_blocks; i++) {
-            	disk.push_back(0);
+            	disk.push_back('_');
             }
         } 
         // Linha 1: Quantidade de segmentos ocupados
@@ -76,9 +76,106 @@ ResourceManager::ResourceManager(const std::string& file) {
     myFile.close();
 }
 
-void ResourceManager::execInstruction(Process* p) {
-	for (std::tuple t : p->process_instructions){
-		std::cout << std::get<0>(t) << "\n";
-	}
+void ResourceManager::execSegmentsInstruction() {
+	for(std::tuple t : occupied_segments_instructions) {
+		std::cout << std::get<0>(t) << " " << std::get<1>(t) << " " << std::get<2>(t) << "\n";
+		char file_name = std::get<0>(t);
+		int first_block = std::get<1>(t);
+		int quantity = std::get<2>(t);
+		bool test = true;
+		// Checagem para ver ser o espaço está livre
+		for(int i = first_block; i < first_block + quantity; i++) {
+			if(bit_map[i]){
+				test = false;
+        	}
+        }
+        if(test) {
+			// Aloca no disco os arquivos e atualiza o bit map
+			for(int i = first_block; i < first_block + quantity; i++) {
+				disk[i]	= file_name;
+				bit_map.set(i);
+			}
+		}
+	} 	
 }
+
+void ResourceManager::execProcessInstruction(Process* p) {
+	std::vector<std::tuple<int, int, char, int>> v = p->process_instructions;
+	// Verificação se o vector está vazio
+	if(v.empty())
+		return;
+	std::cout << std::get<0>(v[0]) << " " << std::get<1>(v[0]) << " " << std::get<2>(v[0]) << " " << std::get<3>(v[0]) << "\n";
+	char file_name = std::get<2>(v[0]);
+	int opp_type = std::get<1>(v[0]);
+	int necessary_blocks = std::get<3>(v[0]);
+	bool test = true;
+	int count = 0;
+	int accumulator = 0;
+	int first_block = 0;
+	// Checagem para ver ser há um espaço suficiente para o arquivo
+	if(opp_type == 0) { 
+		for(int i = 0; i < disk_blocks; i++) {
+			if (count == necessary_blocks) {
+				test = true;
+				break;
+			}
+			if(bit_map[i]){
+				test = false;
+				first_block += accumulator;
+				accumulator = 0;
+				count = 0;
+				first_block += 1;
+		    }else {
+		    	count += 1;
+		    	accumulator += 1;
+			}
+		}
+		// Necessário para testar o último bloco
+		if (count == necessary_blocks) {
+				test = true;
+		}
+
+		if(test) {
+			// Aloca no disco os arquivos e atualiza o bit map
+			for(int i = first_block; i < first_block + necessary_blocks; i++) {
+				disk[i]	= file_name;
+				bit_map.set(i);
+			}
+		}
+	} else if(opp_type == 1) {
+		for(char c : disk) {
+			if(c == file_name) {
+				test = true;
+				bit_map.reset(count);
+				disk[count] = '_';
+			}
+			count += 1;		
+		}
+	}
+	// Deleta a instrução do vector instruções do processo pop.
+	(p->process_instructions).erase(p->process_instructions.begin() + 0);
+}
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
