@@ -14,7 +14,7 @@
 using namespace std;
 
 
-vector<Process> create_process(string process)
+tuple <vector<Process>, vector<Process>> create_process(string process)
 {
     ifstream myFile(process);
     if(!myFile.is_open())
@@ -24,7 +24,8 @@ vector<Process> create_process(string process)
     }
 
     // vetor local
-    vector<Process> local_queue;
+    vector<Process> sorted_queue;
+    vector<Process> unsorted_queue;
 
     string line;
     int current_id = 0; 
@@ -52,19 +53,20 @@ vector<Process> create_process(string process)
                >> new_process.sata_req) 
         {
             
-            local_queue.push_back(new_process);
+            sorted_queue.push_back(new_process);
+            unsorted_queue.push_back(new_process);
         }
     }
     // Ordenando pela ordem de chegada em caso de empate pela prioridade
-    std::sort(local_queue.begin(), local_queue.end(), [](const Process& a, const Process& b) {  // sem std tava dando sort is ambiguous
+    std::sort(sorted_queue.begin(), sorted_queue.end(), [](const Process& a, const Process& b) {  // sem std tava dando sort is ambiguous
     return tie(a.init_time, a.priority) < 
            tie(b.init_time, b.priority);
 	});
 
     myFile.close();
 
-    // retorna a lista para a main
-    return local_queue;
+    // retorna as listas para a main
+    return {sorted_queue, unsorted_queue};
 }
 
 int main(int argc, char* argv[])
@@ -76,17 +78,23 @@ int main(int argc, char* argv[])
     }
 
     // coloca o resultado de create_process em read_processes (processos lidos)
-    vector<Process> read_processes = create_process(argv[1]);
+    tuple t = create_process(argv[1]);
+    vector<Process> read_processes = get<0>(t);
+    vector<Process> unsorted_processes = get<1>(t);
 
     // cria o gerenciador de filas passando processos lidos
     QueueManager queue_manager(read_processes);
 
 	// cria o gerenciador de arquivos e dispositivos de I/O
 	ResourceManager resource_manager(argv[2]);
-	/*========================= TESTE ================================*/
-    for(std::tuple t: resource_manager.getOccupiedSegmentsInstructions()) {
-    	cout << std::get<0>(t) << " " << std::get<1>(t) << " " << std::get<2>(t) << "\n";
+
+	// liga a cada processo as suas instruções
+    for(std::tuple t: resource_manager.getProcessInstructions()) {
+    	if( std::get<0>(t) > unsorted_processes.size() - 1)
+    		continue;
+    	(unsorted_processes[std::get<0>(t)].process_instructions).push_back(t); 
     }
+    
 
     // clock da CPU
     int system_clock = 0;

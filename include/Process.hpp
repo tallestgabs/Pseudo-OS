@@ -9,6 +9,7 @@ struct Process{
     int page_faults = 0;
     int pc = 0;    // program counter (contagem de instrucoes)
     std::vector<int> references; // sequencia de paginas lidas no string.txt
+    std::vector<std::tuple<int, int, char, int>> process_instructions; // instruções de arquivo de cada processo
 
     // dados do process.txt
     int init_time;
