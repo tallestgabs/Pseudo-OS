@@ -25,6 +25,10 @@ ResourceManager::ResourceManager(const std::string& file) {
         // Linha 0: Quantidade de blocos no disco
         if (count == 0) {
             ss >> this->disk_blocks;
+            // Popula o disco
+            for(int i = 0; i < disk_blocks; i++) {
+            	disk.push_back(0);
+            }
         } 
         // Linha 1: Quantidade de segmentos ocupados
         else if (count == 1) {
@@ -71,3 +75,10 @@ ResourceManager::ResourceManager(const std::string& file) {
 
     myFile.close();
 }
+
+void ResourceManager::execInstruction(Process* p) {
+	for (std::tuple t : p->process_instructions){
+		std::cout << std::get<0>(t) << "\n";
+	}
+}
+    

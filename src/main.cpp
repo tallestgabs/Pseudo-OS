@@ -2,10 +2,10 @@
 #include <fstream>
 #include <string>
 #include <cstdlib>
-#include <vector>    // Necessário para vector
-#include <sstream>   // Importante para ler os dados da linha
-#include <tuple>     // Necessário para usar o std::tie
-#include <algorithm> // Necessário para o sort
+#include <vector>
+#include <sstream>
+#include <tuple>
+#include <algorithm>
 
 #include "../include/Process.hpp"
 #include "../include/QueueManager.hpp"
@@ -13,150 +13,167 @@
 
 using namespace std;
 
-
-tuple <vector<Process>, vector<Process>> create_process(string process)
+// Agora só cria a lista de processos na ORDEM ORIGINAL do arquivo (pid = índice)
+vector<Process*> create_process(string process)
 {
     ifstream myFile(process);
-    if(!myFile.is_open())
+    if (!myFile.is_open())
     {
         cerr << "Error ! Não foi possível abrir o arquivo " << process << "\n";
         exit(EXIT_FAILURE);
     }
 
-    // vetor local
-    vector<Process> sorted_queue;
-    vector<Process> unsorted_queue;
+    vector<Process*> processes;
 
     string line;
-    int current_id = 0; 
+    int current_id = 0;
 
-    
-
-    while(getline(myFile, line))
+    while (getline(myFile, line))
     {
-        // Ignora linhas vazias
-        if(line.empty()) continue;
+        if (line.empty()) continue;
 
         stringstream ss(line);
         char virgula;
-        
-        Process new_process;
-        new_process.pid = current_id++;
 
-        if (ss >> new_process.init_time >> virgula
-               >> new_process.priority >> virgula
-               >> new_process.cpu_time >> virgula
-               >> new_process.frames >> virgula
-               >> new_process.printer_req >> virgula
-               >> new_process.scanner_req >> virgula
-               >> new_process.modem_req >> virgula
-               >> new_process.sata_req) 
+        Process* new_process = new Process(); // heap, sobrevive além do loop
+        new_process->pid = current_id++;       // -> em vez de .
+
+        if (ss >> new_process->init_time >> virgula
+               >> new_process->priority >> virgula
+               >> new_process->cpu_time >> virgula
+               >> new_process->frames >> virgula
+               >> new_process->printer_req >> virgula
+               >> new_process->scanner_req >> virgula
+               >> new_process->modem_req >> virgula
+               >> new_process->sata_req)
         {
-            
-            sorted_queue.push_back(new_process);
-            unsorted_queue.push_back(new_process);
+            processes.push_back(new_process);
+        }
+        else
+        {
+            // linha inválida/malformada: descarta pra não deixar lixo/pid furado
+            delete new_process;
         }
     }
-    // Ordenando pela ordem de chegada em caso de empate pela prioridade
-    std::sort(sorted_queue.begin(), sorted_queue.end(), [](const Process& a, const Process& b) {  // sem std tava dando sort is ambiguous
-    return tie(a.init_time, a.priority) < 
-           tie(b.init_time, b.priority);
-	});
 
     myFile.close();
-
-    // retorna as listas para a main
-    return {sorted_queue, unsorted_queue};
+    return processes;
 }
 
 int main(int argc, char* argv[])
 {
-    if(argc < 4)
+    if (argc < 4)
     {
         cout << "Uso: ./main processes.txt files.txt memory.txt\n";
         return 1;
     }
 
-    // coloca o resultado de create_process em read_processes (processos lidos)
-    tuple t = create_process(argv[1]);
-    vector<Process> read_processes = get<0>(t);
-    vector<Process> unsorted_processes = get<1>(t);
+    // Lê os processos NA ORDEM ORIGINAL do arquivo (pid == índice no vetor)
+    vector<Process*> unsorted_processes = create_process(argv[1]);
 
-    // cria o gerenciador de filas passando processos lidos
-    QueueManager queue_manager(read_processes);
+    // cria o gerenciador de arquivos e dispositivos de I/O
+    ResourceManager resource_manager(argv[2]);
 
-	// cria o gerenciador de arquivos e dispositivos de I/O
-	ResourceManager resource_manager(argv[2]);
-
-	// liga a cada processo as suas instruções
-    for(std::tuple t: resource_manager.getProcessInstructions()) {
-    	if( std::get<0>(t) > unsorted_processes.size() - 1)
-    		continue;
-    	(unsorted_processes[std::get<0>(t)].process_instructions).push_back(t); 
+    // Liga cada processo às suas instruções ANTES de ordenar,
+    // usando o pid como índice em unsorted_processes (que preserva a ordem original)
+    for (auto t : resource_manager.getProcessInstructions())
+    {
+        long pid = std::get<0>(t);
+        if (pid < 0 || pid >= (long)unsorted_processes.size())
+            continue;
+        unsorted_processes[pid]->process_instructions.push_back(t); // -> em vez de .
     }
-    
+
+    for (int i : resource_manager.getDisk())
+        cout << i << " ";
+    cout << "\n";
+
+    for (Process* p : unsorted_processes)     // Process* em vez de Process
+    {
+        if (!p->process_instructions.empty())
+            cout << get<0>(p->process_instructions[0]) << " ";
+    }
+    cout << "\n";
+
+    // Só agora monta a fila ORDENADA (por init_time, priority),
+    // já copiando processos que já têm as instruções ligadas
+    vector<Process> sorted_queue;
+    sorted_queue.reserve(unsorted_processes.size());
+    for (Process* p : unsorted_processes)
+        sorted_queue.push_back(*p); // copia já inclui process_instructions
+
+    std::sort(sorted_queue.begin(), sorted_queue.end(),
+        [](const Process& a, const Process& b) {
+            return tie(a.init_time, a.priority) < tie(b.init_time, b.priority);
+        });
+
+    // cria o gerenciador de filas já com os processos ordenados e ligados às instruções
+    QueueManager queue_manager(sorted_queue);
 
     // clock da CPU
     int system_clock = 0;
 
     // LOOP PRINCIPAL DO SO
-    while(queue_manager.has_readyProcesses()){
-        // verifica se no clock atual chegou um processo novo
+    while (queue_manager.has_readyProcesses())
+    {
         queue_manager.verify_arrivals(system_clock);
-        
-        // pede o processo de maior prioridade
+
         Process* current_process = queue_manager.get_next_process();
 
-        if(current_process != nullptr){
-    	    cout << "dispatcher =>\n";
-		    cout << "	PID: " << current_process->pid << "\n";
-		    cout << "	frames: " << current_process->frames << "\n";
-		    cout << "	priority: " << current_process->priority << "\n";
-		    cout << "	time: " << current_process->cpu_time << "\n";
-		    cout << "	printers: " << current_process->printer_req << "\n";
-		    cout << "	scanners: " << current_process->scanner_req << "\n";
-		    cout << "	modems: " << current_process->modem_req << "\n";
-		    cout << "	drives: " << current_process->sata_req << "\n";
+        if (current_process != nullptr)
+        {
+            cout << "dispatcher =>\n";
+            cout << "	PID: " << current_process->pid << "\n";
+            cout << "	frames: " << current_process->frames << "\n";
+            cout << "	priority: " << current_process->priority << "\n";
+            cout << "	time: " << current_process->cpu_time << "\n";
+            cout << "	printers: " << current_process->printer_req << "\n";
+            cout << "	scanners: " << current_process->scanner_req << "\n";
+            cout << "	modems: " << current_process->modem_req << "\n";
+            cout << "	drives: " << current_process->sata_req << "\n";
 
             cout << "process " << current_process->pid << " =>\n";
             cout << "P" << current_process->pid << " STARTED\n";
 
-            // Separa execucao
-            if(current_process->priority == 0){
-                // Tempo Real -> FIFO, Sem Preempcao 
-                while(current_process->cpu_time > 0){
-                    current_process->pc++;  
+            if (current_process->priority == 0)
+            {
+                while (current_process->cpu_time > 0)
+                {
+                    current_process->pc++;
                     cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
-
+                    resource_manager.execInstruction(current_process);
                     current_process->cpu_time--;
                     system_clock++;
                 }
                 cout << "P" << current_process->pid << " return SIGINT\n\n";
-                delete current_process;
             }
-            else{
-                // Usuario -> Preempcao, Quantum de 1ms
-                current_process->pc++;  
+            else
+            {
+                current_process->pc++;
                 cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
 
                 current_process->cpu_time--;
                 system_clock++;
 
-                // verifica se terminou antes do 1ms
-                if(current_process->cpu_time <= 0){
+                if (current_process->cpu_time <= 0)
+                {
                     cout << "P" << current_process->pid << " return SIGINT\n\n";
-                    delete current_process;
-                } else{
-                    // se nao terminou vai sofrer preempcao e aging (prioridade abaixa)
+                }
+                else
+                {
                     queue_manager.reallocate_process(current_process);
                 }
             }
-            
         }
-        else{
-            // se nao tiver ninguem a cpu fica ociosa e o clock avança
+        else
+        {
             system_clock++;
         }
     }
+
+    // libera a memória alocada em create_process
+    for (Process* p : unsorted_processes)
+        delete p;
+
     return 0;
 }
