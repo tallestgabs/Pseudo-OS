@@ -6,7 +6,9 @@
 #include <sstream>
 #include <tuple>
 #include <algorithm>
+#include <map>
 
+#include "../include/MemoryManager.hpp"
 #include "../include/Process.hpp"
 #include "../include/QueueManager.hpp"
 #include "../include/ResourceManager.hpp"
@@ -107,6 +109,12 @@ int main(int argc, char* argv[])
             return tie(a.init_time, a.priority) < tie(b.init_time, b.priority);
         });
 
+    // inicializacao do gerenciador de memoria
+    MemoryManager memory_manager;
+    memory_manager.load_references(argv[3], sorted_queue);
+    // mapa para o backup das faltas de página
+    std::map<int, int> page_faults_summary;
+
     // cria o gerenciador de filas já com os processos ordenados e ligados às instruções
     QueueManager queue_manager(sorted_queue);
 
@@ -142,15 +150,27 @@ int main(int argc, char* argv[])
                     current_process->pc++;
                     cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
                     resource_manager.execInstruction(current_process);
+
+                    // execucao da memoria em tempo real (prioridade 0)
+                    memory_manager.execute_instruction(current_process);
+                    // ===================================================
+
                     current_process->cpu_time--;
                     system_clock++;
                 }
                 cout << "P" << current_process->pid << " return SIGINT\n\n";
+
+                // encerramento do processo de tempo real (prioridade 0) e liberacao da memoria
+                page_faults_summary[current_process->pid] = current_process->page_faults;
+                memory_manager.terminate_process(current_process);
             }
             else
             {
                 current_process->pc++;
                 cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
+                
+                // execucao da memoria em tempo de usuario (prioridade 1, 2 ou 3)
+                memory_manager.execute_instruction(current_process);
 
                 current_process->cpu_time--;
                 system_clock++;
@@ -158,6 +178,10 @@ int main(int argc, char* argv[])
                 if (current_process->cpu_time <= 0)
                 {
                     cout << "P" << current_process->pid << " return SIGINT\n\n";
+
+                    // encerramento do processo de usuario (prioridade 1, 2 ou 3) e liberacao da memoria
+                    page_faults_summary[current_process->pid] = current_process->page_faults;
+                    memory_manager.terminate_process(current_process);
                 }
                 else
                 {
@@ -174,6 +198,12 @@ int main(int argc, char* argv[])
     // libera a memória alocada em create_process
     for (Process* p : unsorted_processes)
         delete p;
+
+    // printa o resumo das faltas de página por processo
+    cout << "Número de Faltas de Páginas por processo:\n";
+    for (auto const& [pid, faults] : page_faults_summary) {
+        cout << "P" << pid << " = " << faults << " faltas de páginas\n";
+    }
 
     return 0;
 }
