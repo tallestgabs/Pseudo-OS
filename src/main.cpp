@@ -88,21 +88,9 @@ int main(int argc, char* argv[])
         	unsorted_processes[pid]->process_instructions.push_back(t); // -> em vez de .
     }
 
-    for (char c : resource_manager.getDisk())
-        cout << c << " ";
-    cout << "\n";
-    
-    for (int i = 0; i < resource_manager.getDiskBlocks(); i++) {
-    	cout << resource_manager.getBitMap()[i] << " ";
-    }
-    cout << "\n";
-
-    for (Process* p : unsorted_processes)     // Process* em vez de Process
-    {
-        if (!p->process_instructions.empty())
-            cout << get<0>(p->process_instructions[0]) << " ";
-    }
-    cout << "\n";
+    // Executa TODAS as operações de arquivo em bloco (na ordem original do
+    // arquivo de recursos) e guarda o log para impressão depois do loop da CPU
+    resource_manager.execAllProcessInstructions(unsorted_processes);
 
     // Só agora monta a fila ORDENADA (por init_time, priority),
     // já copiando processos que já têm as instruções ligadas
@@ -205,15 +193,19 @@ int main(int argc, char* argv[])
     // libera a memória alocada em create_process
     for (Process* p : unsorted_processes)
         delete p;
-	
+
+    // imprime o log das operações do sistema de arquivos, montado em bloco
+    // por resource_manager.execAllProcessInstructions()
+    cout << "Sistema de arquivos =>\n";
+    for (const std::string& line : resource_manager.file_system_log)
+        cout << line << "\n";
+    cout << "\n";
+
+    cout << "Mapa de ocupação do disco:\n";
 	for (char c : resource_manager.getDisk())
         cout << c << " ";
-    cout << "\n";
-    
-    for (int i = 0; i < resource_manager.getDiskBlocks(); i++) {
-    	cout << resource_manager.getBitMap()[i] << " ";
-    }
-    cout << "\n";
+    cout << "\n\n";
+
     // printa o resumo das faltas de página por processo
     cout << "Número de Faltas de Páginas por processo:\n";
     for (auto const& [pid, faults] : page_faults_summary) {
