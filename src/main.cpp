@@ -11,7 +11,7 @@
 #include "../include/MemoryManager.hpp"
 #include "../include/Process.hpp"
 #include "../include/QueueManager.hpp"
-#include "../include/ResourceManager.hpp"
+#include "../include/FileSystem.hpp"
 
 using namespace std;
 
@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     vector<Process*> unsorted_processes = create_process(argv[1]);
 
     // cria o gerenciador de arquivos e dispositivos de I/O
-    ResourceManager resource_manager(argv[2]);
+    FileSystem resource_manager(argv[2]);
     resource_manager.execSegmentsInstruction();
 
     // Liga cada processo às suas instruções ANTES de ordenar,
@@ -166,6 +166,7 @@ int main(int argc, char* argv[])
                 
                 // execucao da memoria em tempo de usuario (prioridade 1, 2 ou 3)
                 memory_manager.execute_instruction(current_process);
+                resource_manager.execProcessInstruction(current_process);
 
                 current_process->cpu_time--;
                 system_clock++;
