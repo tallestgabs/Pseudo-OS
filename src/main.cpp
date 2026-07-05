@@ -49,6 +49,11 @@ vector<Process*> create_process(string process)
                >> new_process->modem_req >> virgula
                >> new_process->sata_req)
         {
+            // se prioridade >3 entao coloca prioridade como 3 (menor fila de prioridade)
+            if(new_process->priority > 3) new_process->priority = 3;
+            // mesma coisa para valores < 0
+            else if(new_process->priority < 0) new_process->priority = 0;
+
             processes.push_back(new_process);
         }
         else
@@ -120,6 +125,9 @@ int main(int argc, char* argv[])
     while (queue_manager.has_readyProcesses())
     {
         queue_manager.verify_arrivals(system_clock);
+
+        // aplica o Aging para evitar starvation
+        queue_manager.apply_aging();
 
         Process* current_process = queue_manager.get_next_process();
 

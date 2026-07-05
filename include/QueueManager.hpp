@@ -33,8 +33,7 @@ class QueueManager{
 
         void reallocate_process(Process* p);
 
-        // getter (DEBUG se precisar)
-        const std::vector<Process>& get_global_processes_queue() const;
+        void apply_aging();
 
 };
 

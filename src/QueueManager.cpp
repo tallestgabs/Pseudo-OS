@@ -78,6 +78,9 @@ bool QueueManager::has_readyProcesses() const{
 
 
 void QueueManager::reallocate_process(Process* p){
+
+    p->waiting_time = 0;  // acabou de sair da CPU
+
     // quem acabou de usar a cpu eh penalizado abaixando sua prioridade
     // quando menor o numero, maior prioridade no escalonador
     if(p->priority < 3){
@@ -97,7 +100,42 @@ void QueueManager::reallocate_process(Process* p){
     }
 
 
-// getter
-const std::vector<Process>& QueueManager::get_global_processes_queue() const{
-    return global_processes_queue;
-}
+void QueueManager::apply_aging(){
+    // promove processos com muito tempo na fila 2
+    int queue2_size = user2_queue.size();
+    for(int i = 0; i < queue2_size; i++){
+        Process* p = user2_queue.front();
+        user2_queue.pop();
+
+        p->waiting_time++;   // envelheceu
+
+        if(p->waiting_time >= 2){   // momento de promoção
+            p->priority = 1;        // sobe para a fila 1
+            p->waiting_time = 0;    // zera a espera
+            user1_queue.push(p);    // vai para a fila 1
+        }
+        else{
+            user2_queue.push(p);    // volta para a fila 2
+        }
+    }
+    // faz a mesma coisa para a fila 3     
+    int queue3_size = user3_queue.size();
+    for(int i = 0; i < queue3_size; i++){
+        Process* p = user3_queue.front();
+        user3_queue.pop();
+
+        p->waiting_time++;   
+
+        if(p->waiting_time >= 2){   
+            p->priority = 2;        
+            p->waiting_time = 0;    
+            user2_queue.push(p);    
+        }
+        else{
+            user3_queue.push(p);    
+        }
+    }
+}    
+
+
+

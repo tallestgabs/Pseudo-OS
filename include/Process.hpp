@@ -8,6 +8,7 @@ struct Process{
     int pid;  // inicia em zero
     int page_faults = 0;
     int pc = 0;    // program counter (contagem de instrucoes)
+    int waiting_time;  // quantos ciclos o processo ficou parado na fila
     std::vector<int> references; // sequencia de paginas lidas no string.txt
     std::vector<std::tuple<int, int, char, int>> process_instructions; // instruções de arquivo de cada processo
 
