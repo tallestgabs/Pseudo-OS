@@ -12,6 +12,7 @@
 #include "../include/Process.hpp"
 #include "../include/QueueManager.hpp"
 #include "../include/FileSystem.hpp"
+#include "../include/ResourceManager.hpp"
 
 using namespace std;
 
@@ -118,6 +119,9 @@ int main(int argc, char* argv[])
     // cria o gerenciador de filas já com os processos ordenados e ligados às instruções
     QueueManager queue_manager(sorted_queue);
 
+    // Resource Manager (Gerenciado de Dispositivos E/S)
+    ResourceManager io_manager;
+
     // clock da CPU
     int system_clock = 0;
 
@@ -133,6 +137,22 @@ int main(int argc, char* argv[])
 
         if (current_process != nullptr)
         {
+            // Processos de usuario que ainda nao pegaram hardware 
+            if(current_process->priority > 0 && !current_process->has_resources){
+                if(io_manager.verify_andAllocate(current_process)){
+                    // conseguiu pegar o hardware
+                    current_process->has_resources = true;
+                }
+                else{
+                    // falha! nao ha quantidade de recursos solicitados
+                    // devolve para a mesma fila sem penalidade e tenta novamente no proximo quantum
+                    queue_manager.reallocate_process_no_penalty(current_process);
+                    system_clock++;
+                    continue;           // pula o resto e vai para a proxima iteracao
+                }
+            }
+
+    //--------------------------------------------------------------------------
             cout << "dispatcher =>\n";
             cout << "	PID: " << current_process->pid << "\n";
             cout << "	frames: " << current_process->frames << "\n";
@@ -182,6 +202,9 @@ int main(int argc, char* argv[])
                 if (current_process->cpu_time <= 0)
                 {
                     cout << "P" << current_process->pid << " return SIGINT\n\n";
+
+                    // devolucao do hardware
+                    io_manager.free_resources(current_process);
 
                     // encerramento do processo de usuario (prioridade 1, 2 ou 3) e liberacao da memoria
                     page_faults_summary[current_process->pid] = current_process->page_faults;

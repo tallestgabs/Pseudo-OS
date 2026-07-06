@@ -33,6 +33,8 @@ class QueueManager{
 
         void reallocate_process(Process* p);
 
+        void reallocate_process_no_penalty(Process* p);
+
         void apply_aging();
 
 };

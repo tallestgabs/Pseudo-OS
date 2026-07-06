@@ -97,7 +97,21 @@ void QueueManager::reallocate_process(Process* p){
     else{
         user3_queue.push(p);
     }
+}
+
+void QueueManager::reallocate_process_no_penalty(Process* p){
+
+    // volta para fila de onde veio sem mudar prioridade
+    if(p->priority == 1){
+        user1_queue.push(p);
     }
+    else if(p->priority == 2){
+        user2_queue.push(p);
+    }
+    else{
+        user3_queue.push(p);
+    }
+}
 
 
 void QueueManager::apply_aging(){
