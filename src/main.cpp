@@ -234,8 +234,8 @@ int main(int argc, char* argv[])
     cout << "\n";
 
     cout << "Mapa de ocupação do disco:\n";
-	for (char c : resource_manager.getDisk())
-        cout << c << " ";
+	for (pair p : resource_manager.getDisk())
+        cout << p.first << " ";
     cout << "\n\n";
 
     // printa o resumo das faltas de página por processo

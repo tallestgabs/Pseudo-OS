@@ -41,9 +41,9 @@ FileSystem::FileSystem(const std::string& file) {
         // Linha 0: Quantidade de blocos no disco
         if (count == 0) {
             ss >> this->disk_blocks;
-            // Popula o disco
+            // Popula o disco (bloco livre = {'_', -1}, sem processo criador)
             for(int i = 0; i < disk_blocks; i++) {
-            	disk.push_back('_');
+            	disk.push_back({'_', -1});
             }
         } 
         // Linha 1: Quantidade de segmentos ocupados
@@ -106,8 +106,10 @@ void FileSystem::execSegmentsInstruction() {
         }
         if(test) {
 			// Aloca no disco os arquivos e atualiza o bit map
+			// pid = -1 pois esses arquivos vêm da ocupação inicial dos segmentos,
+			// não foram criados por nenhum processo (logo só tempo real pode excluí-los)
 			for(int i = first_block; i < first_block + quantity; i++) {
-				disk[i]	= file_name;
+				disk[i]	= {file_name, -1};
 				bit_map.set(i);
 			}
 		}
@@ -166,8 +168,9 @@ void FileSystem::execAllProcessInstructions(const std::vector<Process*>& process
             }
 
             if (test) {
+                // pid do processo criador fica registrado em cada bloco alocado
                 for (int i = first_block; i < first_block + block_quantity; i++) {
-                    disk[i] = file_name;
+                    disk[i] = {file_name, pid};
                     bit_map.set(i);
                 }
                 this->file_system_log.push_back(
@@ -183,23 +186,43 @@ void FileSystem::execAllProcessInstructions(const std::vector<Process*>& process
         } else if (operation == 1) {
             // Deleção de arquivo
             bool found = false;
+            int owner_pid = -1;
+
+            // Primeiro descobre se o arquivo existe e quem o criou
             for (int i = 0; i < disk_blocks; i++) {
-                if (disk[i] == file_name) {
+                if (disk[i].first == file_name) {
                     found = true;
-                    bit_map.reset(i);
-                    disk[i] = '_';
+                    owner_pid = disk[i].second;
+                    break;
                 }
             }
 
-            if (found) {
+            // Processo de tempo real (priority == 0) pode excluir qualquer arquivo.
+            // Processo de usuário só pode excluir arquivo que ele mesmo criou.
+            bool is_real_time = (processes[pid] != nullptr && processes[pid]->priority == 0);
+            bool has_permission = is_real_time || (owner_pid == pid);
+
+            if (found && has_permission) {
+                for (int i = 0; i < disk_blocks; i++) {
+                    if (disk[i].first == file_name) {
+                        bit_map.reset(i);
+                        disk[i] = {'_', -1};
+                    }
+                }
                 this->file_system_log.push_back(
                     "\tOperação " + std::to_string(operation_number) + " => Sucesso\n" +
                     "\tO processo " + std::to_string(pid) + " deletou o arquivo " + file_name + ".");
-            } else {
+            } else if (!found) {
                 this->file_system_log.push_back(
                     "\tOperação " + std::to_string(operation_number) + " => Falha\n" +
                     "\tO processo " + std::to_string(pid) + " não pode deletar o arquivo " +
                     file_name + " porque ele não existe.");
+            } else {
+                // Arquivo existe, mas o processo não tem permissão para excluí-lo
+                this->file_system_log.push_back(
+                    "\tOperação " + std::to_string(operation_number) + " => Falha\n" +
+                    "\tO processo " + std::to_string(pid) + " não pode deletar o arquivo " +
+                    file_name + " porque não foi ele quem o criou.");
             }
         }
 
@@ -256,16 +279,20 @@ void FileSystem::execProcessInstruction(Process* p) {
 		if(test) {
 			// Aloca no disco os arquivos e atualiza o bit map
 			for(int i = first_block; i < first_block + necessary_blocks; i++) {
-				disk[i]	= file_name;
+				disk[i]	= {file_name, process};
 				bit_map.set(i);
 			}
 		}
 	} else if(opp_type == 1) {
-		for(char c : disk) {
-			if(c == file_name) {
+		// Nota: esta função legada não tem acesso à lista de processos para
+		// checar priority, então a checagem de "usuário só apaga o próprio
+		// arquivo" fica concentrada em execAllProcessInstructions, que é o
+		// caminho realmente usado hoje.
+		for(const std::pair<char,int>& b : disk) {
+			if(b.first == file_name) {
 				test = true;
 				bit_map.reset(count);
-				disk[count] = '_';
+				disk[count] = {'_', -1};
 			}
 			count += 1;		
 		}
