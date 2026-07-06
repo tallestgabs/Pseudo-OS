@@ -5,11 +5,11 @@
 
 class ResourceManager {
     private:
-        // Recursos disponíveis no pseudo-SO
-        int available_printers = 2;
-        int available_scanners = 1;
-        int available_modems = 1;
-        int available_satas = 2;
+        // Recursos disponíveis no pseudo-SO (alterados durante a execução)
+        int available_printers = max_printers;
+        int available_scanners = max_scanners;
+        int available_modems = max_modems;
+        int available_satas = max_satas;
 
     public:
 
@@ -20,6 +20,12 @@ class ResourceManager {
 
         // Devolve os recursos ao pool do sistema quando o processo termina
         void free_resources(Process* p);
+
+        // Valores maximos do recurso (se um processo pedir mais que o maximo é eliminado)
+        static const int max_printers = 2;
+        static const int max_scanners = 1;
+        static const int max_modems = 1;
+        static const int max_satas = 2;
 };
 
 #endif

@@ -39,7 +39,6 @@ vector<Process*> create_process(string process)
         char virgula;
 
         Process* new_process = new Process(); // heap, sobrevive além do loop
-        new_process->pid = current_id++;       // -> em vez de .
 
         if (ss >> new_process->init_time >> virgula
                >> new_process->priority >> virgula
@@ -50,11 +49,26 @@ vector<Process*> create_process(string process)
                >> new_process->modem_req >> virgula
                >> new_process->sata_req)
         {
-            // se prioridade >3 entao coloca prioridade como 3 (menor fila de prioridade)
-            if(new_process->priority > 3) new_process->priority = 3;
-            // mesma coisa para valores < 0
-            else if(new_process->priority < 0) new_process->priority = 0;
 
+            // elimina processos com dados incorretos (i.e: prioridade > 3, printer, scanner, modem, sata maiores que o definido)
+            if(new_process->priority > 3 ||
+               new_process->priority < 0 ||
+               new_process->printer_req > ResourceManager::max_printers||
+               new_process->scanner_req > ResourceManager::max_scanners||
+               new_process->modem_req > ResourceManager::max_modems||
+               new_process->sata_req > ResourceManager::max_satas){
+
+                // deleta processo
+                delete new_process;
+
+                // vai para o proximo processo
+                continue;
+
+            } 
+            
+            // se os valores são válidos então adiciona no vetor de processos
+
+            new_process->pid = current_id++;       // -> em vez de .
             processes.push_back(new_process);
         }
         else
