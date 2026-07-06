@@ -42,9 +42,6 @@ class FileSystem{
     
     void execSegmentsInstruction();
     
-    // Executa a instrução de arquivo do respectivo processo
-    void execProcessInstruction(Process* p);
-    
     void execAllProcessInstructions(const std::vector<Process*>& processes); 
     
     std::vector<std::string> file_system_log;

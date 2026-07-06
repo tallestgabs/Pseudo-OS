@@ -1,10 +1,5 @@
 #include "../include/FileSystem.hpp"
 
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <cstdlib> // Para o exit() e EXIT_FAILURE
-
 // Monta a lista de blocos alocados no formato "0, 1 e 2" para as mensagens de log
 static std::string format_block_list(int first_block, int quantity) {
     std::string result;
@@ -116,14 +111,11 @@ void FileSystem::execSegmentsInstruction() {
 	} 	
 }
 
-// Executa TODAS as instruções de arquivo dos processos, de uma vez, na ordem
-// original do arquivo de recursos, e monta o log "Sistema de arquivos".
-// Antes essas operações eram executadas silenciosamente, uma por tick de CPU,
-// dentro de execProcessInstruction(Process*). Agora elas rodam aqui, em bloco,
-// e esvaziam o process_instructions de cada Process para que as chamadas
-// remanescentes dentro do loop da CPU virem no-op (não há mais nada pra popar).
 void FileSystem::execAllProcessInstructions(const std::vector<Process*>& processes) {
     int operation_number = 1;
+    
+    // --- NOVO: Mapa para contar operações por processo ---
+    std::map<int, int> process_op_counts; 
 
     for (std::tuple<int, int, char, int> t : this->process_instructions) {
         int pid = std::get<0>(t);
@@ -139,6 +131,20 @@ void FileSystem::execAllProcessInstructions(const std::vector<Process*>& process
             operation_number++;
             continue;
         }
+
+        // --- NOVA VERIFICAÇÃO DE TEMPO DE CPU ---
+        // Se o processo já atingiu seu limite de cpu_time, ele não pode executar a instrução
+        if (process_op_counts[pid] >= processes[pid]->cpu_time) {
+            this->file_system_log.push_back(
+                "\tOperação " + std::to_string(operation_number) + " => Falha\n" +
+                "\tO processo " + std::to_string(pid) + " não teve tempo de CPU.");
+            operation_number++;
+            continue;
+        }
+
+        // Incrementa o contador pois o processo vai gastar 1 tempo de CPU tentando executar
+        process_op_counts[pid]++;
+        // ----------------------------------------
 
         if (operation == 0) {
             // Criação de arquivo (mesma lógica de busca de espaço livre já usada)
@@ -237,67 +243,3 @@ void FileSystem::execAllProcessInstructions(const std::vector<Process*>& process
     }
 }
 
-void FileSystem::execProcessInstruction(Process* p) {
-	std::vector<std::tuple<int, int, char, int>> v = p->process_instructions;
-	// Verificação se o vector está vazio
-	if(v.empty())
-		return;
-	//std::cout << std::get<0>(v[0]) << " " << std::get<1>(v[0]) << " " << std::get<2>(v[0]) << " " << std::get<3>(v[0]) << "\n";
-	int process = std::get<0>(v[0]);
-	char file_name = std::get<2>(v[0]);
-	int opp_type = std::get<1>(v[0]);
-	int necessary_blocks = std::get<3>(v[0]);
-	bool test = true;
-	int count = 0;
-	int accumulator = 0;
-	int first_block = 0;
-	int operation_count = 1;
-	
-	if(opp_type == 0) {
-		// Checagem para ver ser há um espaço suficiente para o arquivo 
-		for(int i = 0; i < disk_blocks; i++) {
-			if (count == necessary_blocks) {
-				test = true;
-				break;
-			}
-			if(bit_map[i]){
-				test = false;
-				first_block += accumulator;
-				accumulator = 0;
-				count = 0;
-				first_block += 1;
-		    }else {
-		    	count += 1;
-		    	accumulator += 1;
-			}
-		}
-		// Necessário para testar o último bloco
-		if (count == necessary_blocks) {
-				test = true;
-		}
-
-		if(test) {
-			// Aloca no disco os arquivos e atualiza o bit map
-			for(int i = first_block; i < first_block + necessary_blocks; i++) {
-				disk[i]	= {file_name, process};
-				bit_map.set(i);
-			}
-		}
-	} else if(opp_type == 1) {
-		// Nota: esta função legada não tem acesso à lista de processos para
-		// checar priority, então a checagem de "usuário só apaga o próprio
-		// arquivo" fica concentrada em execAllProcessInstructions, que é o
-		// caminho realmente usado hoje.
-		for(const std::pair<char,int>& b : disk) {
-			if(b.first == file_name) {
-				test = true;
-				bit_map.reset(count);
-				disk[count] = {'_', -1};
-			}
-			count += 1;		
-		}
-	}
-	operation_count += 1;
-	// Deleta a instrução do vector instruções do processo pop.
-	(p->process_instructions).erase(p->process_instructions.begin() + 0);
-}

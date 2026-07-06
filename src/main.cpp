@@ -172,7 +172,6 @@ int main(int argc, char* argv[])
                 {
                     current_process->pc++;
                     cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
-                    resource_manager.execProcessInstruction(current_process);
 
                     // execucao da memoria em tempo real (prioridade 0)
                     memory_manager.execute_instruction(current_process);
@@ -194,7 +193,6 @@ int main(int argc, char* argv[])
                 
                 // execucao da memoria em tempo de usuario (prioridade 1, 2 ou 3)
                 memory_manager.execute_instruction(current_process);
-                resource_manager.execProcessInstruction(current_process);
 
                 current_process->cpu_time--;
                 system_clock++;

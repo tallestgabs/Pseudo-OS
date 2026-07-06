@@ -1,6 +1,11 @@
 #ifndef PROCESS_HPP
 #define PROCESS_HPP
 
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <cstdlib> // Para o exit() e EXIT_FAILURE
+#include <map>     // ADICIONADO PARA O CONTADOR
 #include <vector>
 
 struct Process{
