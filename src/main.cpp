@@ -173,16 +173,19 @@ int main(int argc, char* argv[])
                     current_process->pc++;
                     cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
 
-                    // execucao da memoria em tempo real (prioridade 0)
-                    memory_manager.execute_instruction(current_process);
-                    // ===================================================
+                    // NOVO: Execução da memória c/ verificação de eliminação (Tempo Real)
+                    if (!memory_manager.execute_instruction(current_process)) {
+                        cout << "P" << current_process->pid << " ELIMINADO: Pediu " << current_process->frames 
+                             << " frames, superando a memoria livre.\n";
+                        current_process->cpu_time = 0; // Aborta e força o encerramento do while
+                        break;
+                    }
 
                     current_process->cpu_time--;
                     system_clock++;
                 }
                 cout << "P" << current_process->pid << " return SIGINT\n\n";
 
-                // encerramento do processo de tempo real (prioridade 0) e liberacao da memoria
                 page_faults_summary[current_process->pid] = current_process->page_faults;
                 memory_manager.terminate_process(current_process);
             }
@@ -191,20 +194,22 @@ int main(int argc, char* argv[])
                 current_process->pc++;
                 cout << "P" << current_process->pid << " instruction " << current_process->pc << "\n";
                 
-                // execucao da memoria em tempo de usuario (prioridade 1, 2 ou 3)
-                memory_manager.execute_instruction(current_process);
-
-                current_process->cpu_time--;
-                system_clock++;
+                // NOVO: Execução da memória c/ verificação de eliminação (Usuário)
+                if (!memory_manager.execute_instruction(current_process)) {
+                    cout << "P" << current_process->pid << " ELIMINADO: Pediu " << current_process->frames 
+                         << " frames, superando a memoria livre.\n";
+                    current_process->cpu_time = 0; // Zera para encerrar imediatamente abaixo
+                } else {
+                    current_process->cpu_time--;
+                    system_clock++;
+                }
 
                 if (current_process->cpu_time <= 0)
                 {
                     cout << "P" << current_process->pid << " return SIGINT\n\n";
 
-                    // devolucao do hardware
                     io_manager.free_resources(current_process);
 
-                    // encerramento do processo de usuario (prioridade 1, 2 ou 3) e liberacao da memoria
                     page_faults_summary[current_process->pid] = current_process->page_faults;
                     memory_manager.terminate_process(current_process);
                 }

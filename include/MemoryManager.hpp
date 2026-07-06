@@ -17,6 +17,7 @@ private:
         std::list<int> pages; // aqui é o LRU
         int allocated_frames = 0; // frames atuais
         size_t current_ref_index = 0; // ponteiro pro proximo frame
+        bool preloaded = false; // NOVO: Flag para saber se a pré-carga foi feita
     };
 
     std::unordered_map<int, ProcessMemory> memory_table; // mapa para o PID do processo e a memória
@@ -27,8 +28,8 @@ public:
     // le o arquivo de referencias e associa ao processo certo
     void load_references(const std::string& filename, std::vector<Process>& processes);
 
-    // processa algumas instrucoes durante o ciclo de CPU e atualiza a tabela de memoria do processo
-    void execute_instruction(Process* p);
+    // ALTERADO: Agora retorna false se o processo for ELIMINADO por falta de memória
+    bool execute_instruction(Process* p);
 
     // libera os frames já usados e remove da tabela da memoria do processo
     void terminate_process(Process* p);

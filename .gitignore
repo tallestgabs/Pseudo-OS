@@ -1,1 +1,7 @@
 pseudo_os
+src/FileSystem.o
+src/main.o
+src/MemoryManager.o
+src/QueueManager.o
+src/ResourceManager.o
+dispatcher
